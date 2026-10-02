@@ -21,6 +21,7 @@ h1{font-size:26px;margin:0 0 8px}.sub{color:#aaa;margin-bottom:24px}
 #status{text-align:center;font-size:22px;min-height:32px}
 #detected{text-align:center;font-size:20px;font-weight:700;min-height:27px;margin-top:6px}
 #signalText{text-align:center;color:#aaa;font-size:14px;margin:7px 0 6px}
+.gain-row{margin-top:10px}.gain-row label{color:#aaa;font-size:13px}.gain-row input{width:100%;accent-color:#eee}
 .meter{height:10px;background:#303030;border-radius:999px;overflow:hidden}
 .meter>div{height:100%;width:0%;background:#65e48b;transition:width .08s linear}
 .progress{text-align:center;color:#aaa;font-size:14px;margin-top:10px}
@@ -59,6 +60,7 @@ details{margin-top:14px;color:#aaa}
   <div id="status" class="neutral">마이크를 시작하세요.</div>
   <div id="detected">현재 입력음: —</div>
   <div id="signalText">마이크: 꺼짐</div>
+  <div class="gain-row"><label for="gainRange">입력 증폭 <span id="gainValue">1.0×</span></label><input id="gainRange" type="range" min="0.5" max="8" step="0.5" value="1"></div>
   <div class="meter"><div id="meter"></div></div>
   <div id="progress" class="progress"></div>
 </div>
@@ -234,6 +236,12 @@ function makeScaleQuestion(){
   $("progress").textContent=$("scaleQuestion").value==="sequence"?"진행: 0 / 7":"";
 }
 
+$("gainRange").oninput=()=>{
+  inputGain=parseFloat($("gainRange").value);
+  $("gainValue").textContent=inputGain.toFixed(1)+"×";
+  if(gainNode)gainNode.gain.value=inputGain;
+};
+
 function updateStats(){
   $("correct").textContent=correct;
   $("wrong").textContent=wrong;
@@ -388,10 +396,13 @@ async function startMic(){
     if(audioCtx.state==="suspended")await audioCtx.resume();
 
     const src=audioCtx.createMediaStreamSource(stream);
+    gainNode=audioCtx.createGain();
+    gainNode.gain.value=inputGain;
     analyser=audioCtx.createAnalyser();
     analyser.fftSize=4096;
     analyser.smoothingTimeConstant=0;
-    src.connect(analyser);
+    src.connect(gainNode);
+    gainNode.connect(analyser);
 
     data=new Float32Array(analyser.fftSize);
 
@@ -417,6 +428,7 @@ async function stopMic(){
   if(audioCtx)await audioCtx.close();
   audioCtx=null;
   analyser=null;
+  gainNode=null;
   data=null;
 
   $("start").textContent="🎙 마이크 시작";
